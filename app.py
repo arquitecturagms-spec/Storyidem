@@ -2,6 +2,7 @@ import datetime
 import urllib.parse
 import gradio as gr
 import requests
+from PIL import Image
 import os
 
 def detectar_evento_del_dia():
@@ -24,45 +25,73 @@ def detectar_evento_del_dia():
         return "Special Celebration Day"
 
 def generar_frase_poetica_ia(evento_texto):
-    """Genera opciones de frases poéticas con un timeout estricto de 5 segundos via GET."""
-    prompt_poema = (
-        f"Write 3 short beautiful greeting card verses for {evento_texto} "
-        f"in English and Spanish. Numbered list only, no extra text."
+    """Genera las 3 opciones de frases poéticas de forma estructurada y limpia."""
+    url_ia_texto = "https://text.pollinations.ai/"
+    instrucciones = (
+        f"Escribe 3 frases poéticas muy cortas para una tarjeta de '{evento_texto}'. "
+        f"Deben estar en inglés y español. Devuelve SOLO las 3 frases numeradas, sin introducciones."
     )
-    prompt_seguro = urllib.parse.quote(prompt_poema)
-    url = f"https://text.pollinations.ai/{prompt_seguro}?model=openai"
+        
+    payload = {
+        "messages": [{"role": "user", "content": instrucciones}],
+        "model": "openai",
+        "jsonMode": False
+    }
         
     try:
-        respuesta = requests.get(url, headers={"User-Agent": "StoryidemBot/2.5"}, timeout=5)
+        respuesta = requests.post(url_ia_texto, json=payload, timeout=4)
         if respuesta.status_code == 200 and respuesta.text.strip():
-            return respuesta.text
+            texto_limpio = respuesta.text.strip()
+            if len(texto_limpio) > 10:
+                return texto_limpio
     except Exception:
         pass
-            
+    
     return (
-        "1. Moments pass, but memories live forever in our hearts.\n"
-        "2. Tu sonrisa guarda la poesía más hermosa de este día.\n"
-        "3. Forever captured in the canvas of time."
+        "1. Moments pass, but memories live forever in our hearts. / Los momentos pasan, pero los recuerdos viven para siempre.\n\n"
+        "2. Tu sonrisa guarda la poesía más hermosa de este día. / Your smile holds the most beautiful poetry of this day.\n\n"
+        "3. Forever captured in the canvas of time. / Capturado por siempre en el lienzo del tiempo."
     )
 
-def generar_diseno_premium_ia(evento_texto, usar_optimizador=True):
-    """Genera la imagen con la IA y la descarga localmente para evadir bloqueos de Gradio 6."""
-    toque_mejora = ", luxury, sharp details" if usar_optimizador else ""
-    prompt_base = f"greeting card design for {evento_texto}{toque_mejora}"
+def generar_diseno_premium_ia(evento_texto, foto_cliente_ruta, usar_optimizador=True):
+    """Genera el fondo con IA y fusiona la foto del cliente encima en el servidor local."""
+    # 1. Crear el fondo elegante con la IA
+    toque_mejora = ", luxury minimalist frame, elegant modern greeting card layout" if usar_optimizador else ""
+    prompt_base = f"greeting card design with blank center space for {evento_texto}{toque_mejora}"
     prompt_seguro = urllib.parse.quote(prompt_base)
     url_remota = f"https://image.pollinations.ai/prompt/{prompt_seguro}?width=800&height=800&nologo=true"
     
-    ruta_local_imagen = "tarjeta_preview.png"
+    ruta_salida_final = "tarjeta_combinada_output.png"
     
     try:
-        # Descargamos físicamente el archivo binario de la imagen al servidor local
-        img_data = requests.get(url_remota, timeout=10).content
-        with open(ruta_local_imagen, 'wb') as handler:
-            handler.write(img_data)
-        # Devolvemos la ruta local del archivo. Gradio adora los archivos locales
-        return ruta_local_imagen
-    except Exception:
-        # Si la descarga remota falla por red, devolvemos la URL original como plan de respaldo
+        # Descargar el fondo generado por la IA
+        img_ia_data = requests.get(url_remota, timeout=10).content
+        with open("fondo_temp.png", 'wb') as handler:
+            handler.write(img_ia_data)
+        
+        fondo_tarjeta = Image.open("fondo_temp.png").convert("RGBA")
+        
+        # 2. Si el cliente subió una foto, la procesamos y la incrustamos
+        if foto_cliente_ruta and os.path.exists(foto_cliente_ruta):
+            foto_cliente = Image.open(foto_cliente_ruta).convert("RGBA")
+            
+            # Redimensionamos la foto del cliente a un tamaño armónico (ej: 300x300 píxeles)
+            foto_cliente.thumbnail((300, 300))
+            
+            # Calculamos una posición centrada en la mitad inferior de la tarjeta
+            # Puedes ajustar estos números (X, Y) para mover la foto donde más te guste
+            pos_x = (fondo_tarjeta.width - foto_cliente.width) // 2
+            pos_y = 350 
+            
+            # Pegamos la foto del cliente sobre el fondo de la IA
+            fondo_tarjeta.paste(foto_cliente, (pos_x, pos_y), foto_cliente)
+        
+        # Guardamos el resultado final unificado
+        fondo_tarjeta.save(ruta_salida_final)
+        return ruta_salida_final
+
+    except Exception as e:
+        print(f"Error en la fusión de imágenes: {e}")
         return url_remota
 
 def flujo_principal_storyidem(foto_cliente, texto_personalizado, mejorar_foto_check):
@@ -71,11 +100,11 @@ def flujo_principal_storyidem(foto_cliente, texto_personalizado, mejorar_foto_ch
     else:
         motivo_final = detectar_evento_del_dia()
     
-    # Obtiene la ruta del archivo descargado localmente
-    archivo_imagen_local = generar_diseno_premium_ia(motivo_final, usar_optimizador=mejorar_foto_check)
+    # Pasamos la ruta de la foto cargada al motor para que realice la mezcla
+    archivo_imagen_local = generar_diseno_premium_ia(motivo_final, foto_cliente, usar_optimizador=mejorar_foto_check)
     frases_sugeridas = generar_frase_poetica_ia(motivo_final)
     
-    estado_foto = "🚀 ALTA NITIDEZ ACTIVADA: Optimizando rostros..." if mejorar_foto_check else "ℹ️ Procesamiento estándar."
+    estado_foto = "🚀 ALTA NITIDEZ ACTIVADA: Optimizando e incrustando rostro..." if mejorar_foto_check else "ℹ️ Procesamiento estándar."
     link_pago_tienda = "https://lemonsqueezy.com"
     
     mensaje_comercial = (
@@ -109,7 +138,6 @@ with gr.Blocks() as demo:
             
         with gr.Column(scale=1):
             gr.Markdown("### 🖼️ 2. Real-Time Preview / Vista Previa")
-            # El componente ahora recibirá un archivo físico real .png
             resultado_imagen = gr.Image(label="Aesthetic Target Card Model (Diseño de la IA)", interactive=False)
             resultado_texto = gr.Textbox(label="Commercial Output & AI Verses", lines=12)
             
