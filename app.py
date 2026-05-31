@@ -2,14 +2,13 @@ import datetime
 import urllib.parse
 import gradio as gr
 import requests
+import os
 
 def detectar_evento_del_dia():
     """Consulta a Wikipedia qué se celebra hoy en el mundo de forma segura."""
     hoy = datetime.datetime.now()
     mes = hoy.strftime("%m")
     dia = hoy.strftime("%d")
-    
-    # URL estructurada con la barra diagonal '/' correspondiente después del dominio
     url = f"https://history.wikimedia.org/v1/by_date/onthisday/all/{mes}/{dia}"
     
     try:
@@ -22,7 +21,6 @@ def detectar_evento_del_dia():
                 return datos["selected"][0]["text"]
         return "Day of Beautiful Memories"
     except Exception:
-        # Plan B si la API de Wikipedia tarda o falla
         return "Special Celebration Day"
 
 def generar_frase_poetica_ia(evento_texto):
@@ -35,7 +33,6 @@ def generar_frase_poetica_ia(evento_texto):
     url = f"https://text.pollinations.ai/{prompt_seguro}?model=openai"
         
     try:
-        # Si en 5 segundos no responde, salta al bloque de respaldo (except)
         respuesta = requests.get(url, headers={"User-Agent": "StoryidemBot/2.5"}, timeout=5)
         if respuesta.status_code == 200 and respuesta.text.strip():
             return respuesta.text
@@ -49,38 +46,43 @@ def generar_frase_poetica_ia(evento_texto):
     )
 
 def generar_diseno_premium_ia(evento_texto, usar_optimizador=True):
-    """Genera la URL de la imagen usando el endpoint directo de Pollinations AI."""
+    """Genera la imagen con la IA y la descarga localmente para evadir bloqueos de Gradio 6."""
     toque_mejora = ", luxury, sharp details" if usar_optimizador else ""
     prompt_base = f"greeting card design for {evento_texto}{toque_mejora}"
-    
-    # Codificación estricta de caracteres para evitar romper la estructura de la URL
     prompt_seguro = urllib.parse.quote(prompt_base)
+    url_remota = f"https://image.pollinations.ai/prompt/{prompt_seguro}?width=800&height=800&nologo=true"
     
-    # ENDPOINT DIRECTO: Evita subrutas complejas que confundan al validador de Gradio
-    return f"https://image.pollinations.ai/prompt/{prompt_seguro}?width=800&height=800&nologo=true"
+    ruta_local_imagen = "tarjeta_preview.png"
+    
+    try:
+        # Descargamos físicamente el archivo binario de la imagen al servidor local
+        img_data = requests.get(url_remota, timeout=10).content
+        with open(ruta_local_imagen, 'wb') as handler:
+            handler.write(img_data)
+        # Devolvemos la ruta local del archivo. Gradio adora los archivos locales
+        return ruta_local_imagen
+    except Exception:
+        # Si la descarga remota falla por red, devolvemos la URL original como plan de respaldo
+        return url_remota
 
 def flujo_principal_storyidem(foto_cliente, texto_personalizado, mejorar_foto_check):
-    # Validar la entrada de texto del cliente
     if texto_personalizado and texto_personalizado.strip():
         motivo_final = texto_personalizado.strip()
     else:
         motivo_final = detectar_evento_del_dia()
     
-    # Construcción de recursos mediante las IA
-    url_tarjeta_base = generar_diseno_premium_ia(motivo_final, usar_optimizador=mejorar_foto_check)
+    # Obtiene la ruta del archivo descargado localmente
+    archivo_imagen_local = generar_diseno_premium_ia(motivo_final, usar_optimizador=mejorar_foto_check)
     frases_sugeridas = generar_frase_poetica_ia(motivo_final)
     
     estado_foto = "🚀 ALTA NITIDEZ ACTIVADA: Optimizando rostros..." if mejorar_foto_check else "ℹ️ Procesamiento estándar."
     link_pago_tienda = "https://lemonsqueezy.com"
     
-    # Bloque comercial con la inyección del enlace para realizar auditoría de la imagen
     mensaje_comercial = (
         f"✨ STORYIDEM PREMIUM ENGINE v2.5 ✨\n"
         f"──────────────────────────────────\n"
         f"📸 PHOTO STATUS: {estado_foto}\n"
         f"📅 TARGET THEME: {motivo_final}\n\n"
-        f"🖼️ URL DE LA IMAGEN GENERADA (Haz clic para verificar si abre):\n"
-        f"{url_tarjeta_base}\n\n"
         f"✍️ AI POETRY PROPOSALS / PROPUESTAS POÉTICAS:\n"
         f"{frases_sugeridas}\n\n"
         f"💵 GLOBAL PRICE: $1.00 USD\n"
@@ -89,7 +91,7 @@ def flujo_principal_storyidem(foto_cliente, texto_personalizado, mejorar_foto_ch
         f"complete your checkout here:\n🔗 {link_pago_tienda}"
     )
     
-    return url_tarjeta_base, mensaje_comercial
+    return archivo_imagen_local, mensaje_comercial
 
 # --- INTERFAZ DE USUARIO (GRADIO) ---
 with gr.Blocks() as demo:
@@ -107,6 +109,7 @@ with gr.Blocks() as demo:
             
         with gr.Column(scale=1):
             gr.Markdown("### 🖼️ 2. Real-Time Preview / Vista Previa")
+            # El componente ahora recibirá un archivo físico real .png
             resultado_imagen = gr.Image(label="Aesthetic Target Card Model (Diseño de la IA)", interactive=False)
             resultado_texto = gr.Textbox(label="Commercial Output & AI Verses", lines=12)
             
