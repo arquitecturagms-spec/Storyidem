@@ -18,108 +18,122 @@ def detectar_evento_del_dia():
             return datos["holidays"]["text"]
         elif "selected" in datos and len(datos["selected"]) > 0:
             return datos["selected"]["text"]
-        return "Día de Celebración Especial"
+        return "International Day of Joy"
     except Exception:
-        return "Día de Celebración Especial"
+        return "Special Celebration Day"
 
 
-def generar_frase_poetica_ia(foto_url_o_path, evento_texto):
-    """La IA analiza visualmente la foto y redacta frases poéticas cortas."""
-    # Le damos instrucciones precisas a Llama 3.2 Vision para actuar como poeta comercial
-    instrucciones = (
-        f"Actúa como un poeta experto y copywriter emocional. Basándote en la celebración de '{evento_texto}', "
-        f"redacta 3 opciones de frases poéticas que sean muy cortas, precisas y desgarradoras de amor o cariño. "
-        f"Deben ser ideales para una tarjeta de saludo. Devuelve solo las 3 opciones numeradas, nada más de texto."
-    )
-
+def generar_frase_poetica_ia(evento_texto):
+    """Genera frases poéticas e inspiradoras cortas de alta conversión."""
     try:
-        # Enviamos la petición al modelo de texto/visión gratuito de Pollinations
         url_ia_texto = "https://pollinations.ai"
+        instrucciones = (
+            f"Actúa como un poeta experto. Basándote en '{evento_texto}', redacta 3"
+            " opciones de frases poéticas muy cortas, precisas y hermosas para una"
+            " tarjeta de felicitación en inglés y español. Devuelve solo las 3"
+            " opciones numeradas."
+        )
         payload = {
             "messages": [{"role": "user", "content": instrucciones}],
-            "model": "searchgpt",  # Usamos el motor inteligente optimizado para respuestas creativas
+            "model": "searchgpt",
             "jsonMode": False,
         }
         respuesta = requests.post(url_ia_texto, json=payload, timeout=10)
         return respuesta.text
     except Exception:
         return (
-            "1. Que el amor guíe cada uno de tus días.\n"
-            "2. Celebrar tu existencia es mi mayor alegría.\n"
-            "3. En la belleza de este día, tu sonrisa es el mejor regalo."
+            "1. In the garden of time, you are the most beautiful flower.\n2. Tu"
+            " presencia ilumina cada rincón de mi existencia.\n3. Together, we can"
+            " write the most beautiful story."
         )
 
 
 def generar_diseno_ia(evento_texto):
     """Conecta con el motor de IA de Pollinations para dibujar la tarjeta."""
     prompt_base = (
-        f"A beautiful greeting card mockup for {evento_texto}, elegant layout, "
-        f"realistic premium paper photography, studio lighting, space for photo"
+        f"A luxury minimalist greeting card mockup for {evento_texto}, elegant modern"
+        f" design, premium texture paper photography, cinematic soft studio lighting,"
+        f" clean presentation space"
     )
     prompt_seguro = urllib.parse.quote(prompt_base)
-    url_imagen_ia = f"https://pollinations.ai{prompt_seguro}?width=800&height=800&seed=88&enhance=true"
+    # Cambiamos la semilla para asegurar un diseño sofisticado y limpio
+    url_imagen_ia = f"https://pollinations.ai{prompt_seguro}?width=1000&height=1000&seed=101&enhance=true"
     return url_imagen_ia
 
 
 def flujo_principal_storyidem(foto_cliente, texto_personalizado):
-    # 1. El sistema revisa el calendario mundial
     evento_detectado = detectar_evento_del_dia()
     motivo_final = (
         texto_personalizado if texto_personalizado else evento_detectado
     )
 
-    # 2. NUEVO: El cerebro de IA genera las frases poéticas dedicadas
-    frases_sugeridas = generar_frase_poetica_ia(foto_cliente, motivo_final)
-
-    # 3. El motor de IA genera el diseño gráfico de fondo
+    # Ejecución de los motores de IA
     url_tarjeta_base = generar_diseno_ia(motivo_final)
+    frases_sugeridas = generar_frase_poetica_ia(motivo_final)
 
     link_pago_tienda = "https://lemonsqueezy.com"
 
     mensaje_comercial = (
-        f"✨ ¡Contenido Exclusivo Storyidem Generado! ✨\n\n"
-        f"📅 Motivo: {motivo_final}\n\n"
-        f"✍️ FRASES POÉTICAS SUGERIDAS POR LA IA PARA TU TARJETA:\n"
+        f"✨ STORYIDEM PREMIUM ENGINE UNLOCKED ✨\n"
+        f"──────────────────────────────────\n"
+        f"📅 TARGET THEME: {motivo_final}\n\n"
+        f"✍️ AI POETRY PROPOSALS / PROPUESTAS POÉTICAS:\n"
         f"{frases_sugeridas}\n\n"
-        f"💵 Precio: $1.00 USD\n"
-        f"🔒 Para descargar esta tarjeta en Alta Definición con tu frase favorita y la foto incrustada, "
-        f"paga de forma segura en: {link_pago_tienda}"
+        f"💵 GLOBAL PRICE: $1.00 USD\n"
+        f"──────────────────────────────────\n"
+        f"🔒 To download this luxury card in Ultra HD with your photo embedded, "
+        f"complete your checkout here:\n🔗 {link_pago_tienda}"
     )
 
     return url_tarjeta_base, mensaje_comercial
 
 
-# --- INTERFAZ GRÁFICA MODERNA ---
-with gr.Blocks() as demo:
-    gr.Markdown("# 🚀 Sistema Automático Storyidem")
+# --- INTERFAZ DE USUARIO HIGH-END STORYIDEM ---
+# Cargamos un tema moderno con esquinas suaves y tipografía limpia
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown(
-        "Procesador inteligente de tarjetas de saludo personalizadas con poesía"
-        " e IA a $1 USD."
+        "<div style='text-align: center;'><h1>🚀 STORYIDEM GLOBAL STATION</h1>"
     )
+    gr.Markdown(
+        "<div style='text-align: center;'><p>Next-Generation Automated Factory"
+        " for Premium $1 USD Greeting Cards.</p></div>"
+    )
+    gr.Markdown("---")
 
     with gr.Row():
-        with gr.Column():
-            gr.Markdown("### 1. Datos de la Tarjeta")
+        with gr.Column(scale=1):
+            gr.Markdown("### 📥 1. Customer Input / Datos de la Tarjeta")
             foto_input = gr.Image(
-                label="Sube aquí la foto para la tarjeta", type="filepath"
+                label="Upload Customer Photo (Sube la foto aquí)",
+                type="filepath",
             )
             texto_input = gr.Textbox(
-                label="Mensaje o Evento del día",
-                placeholder="Deja vacío para usar el calendario mundial...",
+                label="Custom Event or Dedication (Opcional)",
+                placeholder=(
+                    "Leave blank to auto-detect today's global event from the"
+                    " calendar..."
+                ),
             )
-            boton = gr.Button(
-                "🎨 Generar Tarjeta y Poesía con IA", variant="primary"
+            boton_ejecutar = gr.Button(
+                "🎨 BUILD PREMIUM DESIGN & POETRY", variant="primary"
             )
 
-        with gr.Column():
-            gr.Markdown("### 2. Vista Previa de tu Producto")
-            resultado_imagen = gr.Image(label="Tarjeta generada por la IA")
-            resultado_texto = gr.Textbox(label="Propuesta de la IA", lines=12)
+        with gr.Column(scale=1):
+            gr.Markdown("### 🖼️ 2. Real-Time Preview / Vista Previa")
+            resultado_imagen = gr.Image(
+                label="Aesthetic Target Card Model (Diseño de la IA)",
+                interactive=False,
+            )
+            resultado_texto = gr.Textbox(
+                label="Commercial Output & AI Verses", lines=12, show_copy_button=True
+            )
 
-    boton.click(
-        fn=flujo_principal_storyidem,
-        inputs=[foto_input, texto_input],
-        outputs=[resultado_imagen, resultado_texto],
+    gr.Markdown("---")
+    gr.Markdown(
+        "<div style='text-align: center;'><small>Storyidem Software Core v2.0"
+        " • Cloud Architecture Powered by Hugging Face & Pollinations AI • All"
+        " Rights Reserved.</small></div>"
     )
 
+# Lanzamos la aplicación
 demo.launch()
